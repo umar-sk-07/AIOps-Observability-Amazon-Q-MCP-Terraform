@@ -1,0 +1,51 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: alertmanager-kube-prometheus-stack-alertmanager
+  namespace: monitoring
+  labels:
+    app: kube-prometheus-stack-alertmanager
+    app.kubernetes.io/instance: kube-prometheus-stack
+type: Opaque
+stringData:
+  alertmanager.yaml: |
+    global:
+      resolve_timeout: 5m
+    
+    route:
+      group_by: ['alertname', 'cluster', 'service']
+      group_wait: 10s
+      group_interval: 10s
+      repeat_interval: 12h
+      receiver: 'aiops-receiver'
+      routes:
+        # Critical alerts go immediately
+        - match:
+            severity: critical
+          receiver: 'aiops-receiver'
+          group_wait: 0s
+          repeat_interval: 5m
+        
+        # Warning alerts are grouped
+        - match:
+            severity: warning
+          receiver: 'aiops-receiver'
+          group_wait: 30s
+          repeat_interval: 15m
+    
+    receivers:
+      - name: 'aiops-receiver'
+        webhook_configs:
+          - url: 'http://<EC2_IP>:5000/alert'
+            send_resolved: true
+            http_config:
+              follow_redirects: true
+            max_alerts: 0
+    
+    inhibit_rules:
+      # Inhibit warning if critical is firing for same alert
+      - source_match:
+          severity: 'critical'
+        target_match:
+          severity: 'warning'
+        equal: ['alertname', 'namespace', 'pod']

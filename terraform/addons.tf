@@ -13,15 +13,6 @@ module "eks_addons" {
   oidc_provider_arn = module.retail_app_eks.oidc_provider_arn
 
   # =============================================================================
-  # CERT-MANAGER - SSL Certificate Management
-  # =============================================================================
-  enable_cert_manager = true
-  cert_manager = {
-    most_recent = true
-    namespace   = "cert-manager"
-  }
-
-  # =============================================================================
   # NGINX INGRESS CONTROLLER - Load Balancing and Routing
   # =============================================================================
   enable_ingress_nginx = true
@@ -87,15 +78,58 @@ module "eks_addons" {
   }
 
   # =============================================================================
-  # OPTIONAL: MONITORING STACK
+  # MONITORING STACK - Prometheus, AlertManager, Grafana
   # =============================================================================
-  # Uncomment below to enable monitoring (increases costs)
   
-  # enable_kube_prometheus_stack = var.enable_monitoring
-  # kube_prometheus_stack = {
-  #   most_recent = true
-  #   namespace   = "monitoring"
-  # }
+  enable_kube_prometheus_stack = var.enable_monitoring
+  kube_prometheus_stack = {
+    most_recent = true
+    namespace   = "monitoring"
+    
+    # Prometheus configuration
+    set = [
+      # Enable persistent storage for Prometheus
+      {
+        name  = "prometheus.prometheusSpec.retention"
+        value = "7d"
+      },
+      {
+        name  = "prometheus.prometheusSpec.storageSpec.volumeClaimTemplate.spec.accessModes[0]"
+        value = "ReadWriteOnce"
+      },
+      {
+        name  = "prometheus.prometheusSpec.storageSpec.volumeClaimTemplate.spec.resources.requests.storage"
+        value = "10Gi"
+      },
+      # Enable service monitors for application metrics
+      {
+        name  = "prometheus.prometheusSpec.serviceMonitorSelectorNilUsesHelmValues"
+        value = "false"
+      },
+      {
+        name  = "prometheus.prometheusSpec.podMonitorSelectorNilUsesHelmValues"
+        value = "false"
+      },
+      # AlertManager configuration
+      {
+        name  = "alertmanager.enabled"
+        value = "true"
+      },
+      {
+        name  = "alertmanager.alertmanagerSpec.retention"
+        value = "120h"
+      },
+      # Grafana configuration
+      {
+        name  = "grafana.enabled"
+        value = "true"
+      },
+      {
+        name  = "grafana.adminPassword"
+        value = "prom-operator"
+      }
+    ]
+  }
 
   # =============================================================================
   # OPTIONAL: AWS LOAD BALANCER CONTROLLER

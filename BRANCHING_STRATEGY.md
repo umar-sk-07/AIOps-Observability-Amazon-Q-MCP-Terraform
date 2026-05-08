@@ -140,7 +140,7 @@ Configure these secrets in your GitHub repository settings:
 |-------------|-------------|---------|
 | `AWS_ACCESS_KEY_ID` | AWS Access Key for ECR/EKS access | `AKIA...` |
 | `AWS_SECRET_ACCESS_KEY` | AWS Secret Key | `wJalrXUt...` |
-| `AWS_REGION` | AWS Region for resources | `us-west-2` |
+| `AWS_REGION` | AWS Region for resources | `ap-south-1` |
 | `AWS_ACCOUNT_ID` | AWS Account ID for ECR URLs | `123456789012` |
 
 ### **IAM Permissions Required**
@@ -245,7 +245,7 @@ Production branch: Use individual applications only
 ### **Image Pull Errors**
 ```yaml
 # Problem: Wrong ECR repository or missing images
-Error: Failed to pull image "123456789012.dkr.ecr.us-west-2.amazonaws.com/retail-store-ui:abc1234"
+Error: Failed to pull image "123456789012.dkr.ecr.ap-south-1.amazonaws.com/retail-store-ui:abc1234"
 
 # Solutions:
 1. Check ECR repository exists (workflow creates automatically)

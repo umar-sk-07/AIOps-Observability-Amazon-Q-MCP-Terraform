@@ -54,7 +54,7 @@ terraform apply
 
 ```bash
 # Update kubeconfig (replace with your region and cluster name)
-aws eks update-kubeconfig --region us-west-2 --name retail-store
+aws eks update-kubeconfig --region ap-south-1 --name retail-store
 ```
 
 ### 5. Access ArgoCD
@@ -92,7 +92,7 @@ kubectl port-forward svc/argocd-server -n argocd 8080:443
 
 
 ```hcl
-aws_region                = "us-west-2"
+aws_region                = "ap-south-1"
 cluster_name              = "retail-store"        # Will have random suffix added
 environment               = "dev"
 kubernetes_version        = "1.33"

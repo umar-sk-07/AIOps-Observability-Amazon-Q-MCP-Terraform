@@ -119,3 +119,52 @@ output "useful_commands" {
     describe_cluster    = "kubectl cluster-info"
   }
 }
+
+# =============================================================================
+# EC2 INSTANCE OUTPUTS
+# =============================================================================
+
+output "ec2_instance_id" {
+  description = "ID of the AI server EC2 instance"
+  value       = aws_instance.ai_server.id
+}
+
+output "ec2_instance_public_ip" {
+  description = "Public IP address of the AI server EC2 instance"
+  value       = aws_instance.ai_server.public_ip
+}
+
+output "ec2_instance_public_dns" {
+  description = "Public DNS name of the AI server EC2 instance"
+  value       = aws_instance.ai_server.public_dns
+}
+
+output "ec2_instance_private_ip" {
+  description = "Private IP address of the AI server EC2 instance (use this in AlertManager config)"
+  value       = aws_instance.ai_server.private_ip
+}
+
+output "ec2_security_group_id" {
+  description = "ID of the AI server security group"
+  value       = aws_security_group.ai_server_sg.id
+}
+
+output "ec2_iam_role_name" {
+  description = "Name of the IAM role attached to the AI server"
+  value       = aws_iam_role.ai_server_role.name
+}
+
+output "webhook_url" {
+  description = "Webhook URL for AlertManager configuration (use private IP)"
+  value       = "http://${aws_instance.ai_server.private_ip}:5000/alert"
+}
+
+output "ec2_connect_command" {
+  description = "Command to connect to the EC2 instance via SSH"
+  value       = "ssh -i terraform/ec2-ai ec2-user@${aws_instance.ai_server.public_ip}"
+}
+
+output "ec2_ssm_connect_command" {
+  description = "Command to connect to the EC2 instance via AWS Systems Manager"
+  value       = "aws ssm start-session --target ${aws_instance.ai_server.id} --region ${var.aws_region}"
+}

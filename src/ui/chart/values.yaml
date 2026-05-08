@@ -69,7 +69,7 @@ app:
     orders: http://retail-store-orders:80
     checkout: http://retail-store-checkout:80
   chat:
-    enabled: false
+    enabled: "false"
     provider: ""
     model: ""
     # temperature: 0.7
@@ -88,7 +88,6 @@ ingress:
   annotations:
     nginx.ingress.kubernetes.io/ssl-redirect: "false"
     nginx.ingress.kubernetes.io/force-ssl-redirect: "false"
-    cert-manager.io/cluster-issuer: "letsencrypt-prod"
     nginx.ingress.kubernetes.io/proxy-body-size: "8m"
     nginx.ingress.kubernetes.io/proxy-connect-timeout: "30"
     nginx.ingress.kubernetes.io/proxy-send-timeout: "600"
@@ -108,27 +107,23 @@ ingresses:
       nginx.ingress.kubernetes.io/proxy-send-timeout: "600"
       nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
     tls: []
-  # Domain-based access with SSL
+  # Domain-based access without SSL
   - name: domain
     className: "nginx"
     hosts:
       - retail-store.trainwithshubham.com
     annotations:
-      nginx.ingress.kubernetes.io/ssl-redirect: "true"
-      nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
-      cert-manager.io/cluster-issuer: "letsencrypt-prod"
+      nginx.ingress.kubernetes.io/ssl-redirect: "false"
+      nginx.ingress.kubernetes.io/force-ssl-redirect: "false"
       nginx.ingress.kubernetes.io/proxy-body-size: "8m"
       nginx.ingress.kubernetes.io/proxy-connect-timeout: "30"
       nginx.ingress.kubernetes.io/proxy-send-timeout: "600"
       nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
-    tls:
-      - secretName: tls-secret
-        hosts:
-          - retail-store.trainwithshubham.com
+    tls: []
 
-# Cert Manager Configuration
+# Cert Manager Configuration (disabled)
 certManager:
-  createClusterIssuer: true
+  createClusterIssuer: false
   email: trainwithshubham@gmail.com
   clusterIssuerName: "letsencrypt-prod"
   server: "https://acme-v02.api.letsencrypt.org/directory"

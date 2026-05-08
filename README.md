@@ -357,7 +357,7 @@ terraform destroy --auto-approve
 
 #### **Image Pull Errors**
 ```
-Error: Failed to pull image "123456789012.dkr.ecr.us-west-2.amazonaws.com/retail-store-ui:abc1234"
+Error: Failed to pull image "123456789012.dkr.ecr.ap-south-1.amazonaws.com/retail-store-ui:abc1234"
 ```
 **Solutions**:
 1. Ensure you're using the correct branch for your deployment strategy

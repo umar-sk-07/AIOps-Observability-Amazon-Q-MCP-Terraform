@@ -1,0 +1,127 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: retail-store-alerts
+  namespace: monitoring
+  labels:
+    app: kube-prometheus-stack
+    release: kube-prometheus-stack
+spec:
+  groups:
+    - name: retail-store-pod-alerts
+      interval: 30s
+      rules:
+        # Alert when any pod restarts more than 3 times in 5 minutes
+        - alert: PodCrashLooping
+          expr: rate(kube_pod_container_status_restarts_total{namespace="retail-store"}[5m]) > 0.6
+          for: 2m
+          labels:
+            severity: critical
+            component: pod
+          annotations:
+            summary: "Pod {{ $labels.namespace }}/{{ $labels.pod }} is crash looping"
+            description: "Pod {{ $labels.pod }} in namespace {{ $labels.namespace }} has restarted {{ $value }} times in the last 5 minutes."
+            
+        # Alert when pod is not ready
+        - alert: PodNotReady
+          expr: kube_pod_status_phase{namespace="retail-store", phase!="Running"} == 1
+          for: 5m
+          labels:
+            severity: warning
+            component: pod
+          annotations:
+            summary: "Pod {{ $labels.namespace }}/{{ $labels.pod }} is not ready"
+            description: "Pod {{ $labels.pod }} in namespace {{ $labels.namespace }} has been in {{ $labels.phase }} state for more than 5 minutes."
+
+    - name: retail-store-resource-alerts
+      interval: 30s
+      rules:
+        # Alert when CPU usage > 80%
+        - alert: HighCPUUsage
+          expr: |
+            sum(rate(container_cpu_usage_seconds_total{namespace="retail-store", container!="", container!="POD"}[5m])) by (pod, namespace, container) 
+            / 
+            sum(container_spec_cpu_quota{namespace="retail-store", container!="", container!="POD"} / container_spec_cpu_period{namespace="retail-store", container!="", container!="POD"}) by (pod, namespace, container) 
+            > 0.8
+          for: 5m
+          labels:
+            severity: warning
+            component: resource
+          annotations:
+            summary: "High CPU usage detected for {{ $labels.namespace }}/{{ $labels.pod }}"
+            description: "Container {{ $labels.container }} in pod {{ $labels.pod }} is using {{ $value | humanizePercentage }} of CPU limit."
+            
+        # Alert when memory usage > 80%
+        - alert: HighMemoryUsage
+          expr: |
+            sum(container_memory_working_set_bytes{namespace="retail-store", container!="", container!="POD"}) by (pod, namespace, container)
+            /
+            sum(container_spec_memory_limit_bytes{namespace="retail-store", container!="", container!="POD"}) by (pod, namespace, container)
+            > 0.8
+          for: 5m
+          labels:
+            severity: warning
+            component: resource
+          annotations:
+            summary: "High memory usage detected for {{ $labels.namespace }}/{{ $labels.pod }}"
+            description: "Container {{ $labels.container }} in pod {{ $labels.pod }} is using {{ $value | humanizePercentage }} of memory limit."
+
+    - name: retail-store-service-alerts
+      interval: 30s
+      rules:
+        # Alert when service has >5% error rate (5xx errors)
+        - alert: HighErrorRate
+          expr: |
+            sum(rate(http_server_requests_seconds_count{namespace="retail-store", status=~"5.."}[5m])) by (service, namespace)
+            /
+            sum(rate(http_server_requests_seconds_count{namespace="retail-store"}[5m])) by (service, namespace)
+            > 0.05
+          for: 2m
+          labels:
+            severity: critical
+            component: service
+          annotations:
+            summary: "High error rate detected for service {{ $labels.service }}"
+            description: "Service {{ $labels.service }} in namespace {{ $labels.namespace }} has {{ $value | humanizePercentage }} error rate (5xx responses)."
+            
+        # Alert when service is down (no pods available)
+        - alert: ServiceDown
+          expr: kube_deployment_status_replicas_available{namespace="retail-store"} == 0
+          for: 1m
+          labels:
+            severity: critical
+            component: service
+          annotations:
+            summary: "Service {{ $labels.deployment }} is down"
+            description: "Deployment {{ $labels.deployment }} in namespace {{ $labels.namespace }} has no available replicas."
+            
+        # Alert when service has high latency (p95 > 1s)
+        - alert: HighLatency
+          expr: |
+            histogram_quantile(0.95, 
+              sum(rate(http_server_requests_seconds_bucket{namespace="retail-store"}[5m])) by (service, le)
+            ) > 1
+          for: 5m
+          labels:
+            severity: warning
+            component: service
+          annotations:
+            summary: "High latency detected for service {{ $labels.service }}"
+            description: "Service {{ $labels.service }} has p95 latency of {{ $value }}s."
+
+    - name: retail-store-availability-alerts
+      interval: 30s
+      rules:
+        # Alert when deployment has fewer replicas than desired
+        - alert: DeploymentReplicasMismatch
+          expr: |
+            kube_deployment_spec_replicas{namespace="retail-store"}
+            !=
+            kube_deployment_status_replicas_available{namespace="retail-store"}
+          for: 5m
+          labels:
+            severity: warning
+            component: availability
+          annotations:
+            summary: "Deployment {{ $labels.deployment }} has mismatched replicas"
+            description: "Deployment {{ $labels.deployment }} has {{ $value }} available replicas but expects {{ $labels.spec_replicas }}."
