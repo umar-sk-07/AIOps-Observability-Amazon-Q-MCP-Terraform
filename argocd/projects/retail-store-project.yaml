@@ -7,7 +7,7 @@ spec:
   description: Retail Store Sample Application
   
   sourceRepos:
-    - 'https://github.com/LondheShubham153/retail-store-sample-app'
+    - 'https://github.com/umar-sk-07/AIOps-Observability-Amazon-Q-MCP-Terraform.git'
   
   destinations:
     - namespace: retail-store

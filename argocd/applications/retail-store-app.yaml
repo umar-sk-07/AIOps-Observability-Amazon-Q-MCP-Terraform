@@ -6,7 +6,7 @@ metadata:
 spec:
   project: retail-store
   source:
-    repoURL: https://github.com/LondheShubham153/retail-store-sample-app
+    repoURL: https://github.com/umar-sk-07/AIOps-Observability-Amazon-Q-MCP-Terraform.git
     targetRevision: main
     path: src/app/chart
     helm:

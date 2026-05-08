@@ -274,8 +274,8 @@ Each service has its own Helm chart with:
 
 #### 1. **Clone Repository**
 ```bash
-git clone https://github.com/LondheShubham153/retail-store-sample-app.git
-cd retail-store-sample-app
+git clone https://github.com/umar-sk-07/AIOps-Observability-Amazon-Q-MCP-Terraform.git
+cd AIOps-Observability-Amazon-Q-MCP-Terraform
 ```
 
 #### 2. **Choose Branch Strategy**
@@ -598,7 +598,7 @@ This project demonstrates:
 
 ## 🤝 Contributing & Support
 
-- **Repository**: https://github.com/LondheShubham153/retail-store-sample-app
+- **Repository**: https://github.com/umar-sk-07/AIOps-Observability-Amazon-Q-MCP-Terraform
 - **Issues**: GitHub Issues
 - **Discord**: TrainWithShubhamCommunity
 - **License**: Apache 2.0
