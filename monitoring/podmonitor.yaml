@@ -1,0 +1,54 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: retail-store
+  namespace: monitoring
+  labels:
+    app: kube-prometheus-stack
+    release: kube-prometheus-stack
+spec:
+  # Select all pods in retail-store namespace
+  namespaceSelector:
+    matchNames:
+      - retail-store
+  
+  # Select pods with prometheus.io/scrape annotation
+  selector:
+    matchLabels:
+      app.kubernetes.io/owner: retail-store-sample
+  
+  # Define how to scrape
+  podMetricsEndpoints:
+    - port: http
+      interval: 30s
+      scrapeTimeout: 10s
+      # Use the path from annotation, default to /metrics
+      path: /actuator/prometheus
+      relabelings:
+        # Keep only pods with prometheus.io/scrape=true
+        - sourceLabels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+          action: keep
+          regex: "true"
+        # Use custom path if specified in annotation
+        - sourceLabels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+          action: replace
+          targetLabel: __metrics_path__
+          regex: (.+)
+        # Use custom port if specified in annotation
+        - sourceLabels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+          action: replace
+          regex: ([^:]+)(?::\d+)?;(\d+)
+          replacement: $1:$2
+          targetLabel: __address__
+        # Add pod name as label
+        - sourceLabels: [__meta_kubernetes_pod_name]
+          action: replace
+          targetLabel: pod
+        # Add namespace as label
+        - sourceLabels: [__meta_kubernetes_namespace]
+          action: replace
+          targetLabel: namespace
+        # Add service name from app label
+        - sourceLabels: [__meta_kubernetes_pod_label_app_kubernetes_io_name]
+          action: replace
+          targetLabel: service

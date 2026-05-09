@@ -82,6 +82,8 @@ kubectl port-forward svc/argocd-server -n argocd 8080:443
 - **NGINX Ingress Controller** for load balancing
 - **Cert Manager** for SSL certificate management
 - **ArgoCD** for GitOps deployment
+- **Prometheus Stack** for metrics monitoring (optional, via Terraform)
+- **Loki Stack** for log aggregation (optional, via Terraform)
 
 ### Applications (via ArgoCD)
 - Retail Store microservices (UI, Catalog, Cart, Orders, Checkout)
@@ -98,7 +100,7 @@ environment               = "dev"
 kubernetes_version        = "1.33"
 vpc_cidr                  = "10.0.0.0/16"
 enable_single_nat_gateway = true    # Set to false for production
-enable_monitoring         = false   # Set to true to enable monitoring
+enable_monitoring         = true    # Enables Prometheus, Grafana, AlertManager, Loki, and Promtail
 ```
 
 ### Conflict Prevention
@@ -116,8 +118,11 @@ Edit `addons.tf` to enable additional EKS add-ons:
 # Enable AWS Load Balancer Controller
 enable_aws_load_balancer_controller = true
 
-# Enable monitoring stack
+# Enable monitoring stack (Prometheus, Grafana, AlertManager)
 enable_kube_prometheus_stack = true
+
+# Enable logging stack (Loki, Promtail)
+enable_loki = true
 ```
 
 ## 🏗️ Architecture

@@ -36,3 +36,9 @@ devenv.local.nix
 /terraform/eks/default/.terraform.lock.hcl
 /terraform/eks/default/.terraform.tfstate
 /terraform/eks/default/.terraform.tfstate.backup
+
+# SSH Keys for EC2
+ec2-ai
+ec2-ai.pub
+terraform/ec2-ai
+terraform/ec2-ai.pub

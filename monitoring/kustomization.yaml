@@ -6,3 +6,4 @@ namespace: monitoring
 resources:
   - prometheus-rules.yaml
   - alertmanager-config.yaml
+  - podmonitor.yaml

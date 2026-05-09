@@ -36,7 +36,7 @@ stringData:
     receivers:
       - name: 'aiops-receiver'
         webhook_configs:
-          - url: 'http://<EC2_IP>:5000/alert'
+          - url: 'http://10.0.0.81:5000/alert'
             send_resolved: true
             http_config:
               follow_redirects: true

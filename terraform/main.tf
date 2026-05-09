@@ -82,6 +82,42 @@ module "retail_app_eks" {
 }
 
 # =============================================================================
+# EKS ACCESS CONFIGURATION FOR EC2
+# =============================================================================
+
+# Grant EC2 instance admin access to EKS cluster
+resource "aws_eks_access_entry" "ai_server_admin" {
+  cluster_name  = module.retail_app_eks.cluster_name
+  principal_arn = aws_iam_role.ai_server_role.arn
+  type          = "STANDARD"
+
+  tags = merge(
+    local.common_tags,
+    {
+      Name = "${var.cluster_name}-ai-server-access"
+    }
+  )
+
+  depends_on = [
+    module.retail_app_eks,
+    aws_iam_role.ai_server_role
+  ]
+}
+
+# Associate EKS Cluster Admin Policy to EC2 instance
+resource "aws_eks_access_policy_association" "ai_server_admin_policy" {
+  cluster_name  = module.retail_app_eks.cluster_name
+  principal_arn = aws_iam_role.ai_server_role.arn
+  policy_arn    = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+
+  access_scope {
+    type = "cluster"
+  }
+
+  depends_on = [aws_eks_access_entry.ai_server_admin]
+}
+
+# =============================================================================
 # EC2 INSTANCE CONFIGURATION
 # =============================================================================
 
@@ -279,7 +315,7 @@ resource "aws_instance" "ai_server" {
 
   # Storage configuration
   root_block_device {
-    volume_size           = 20
+    volume_size           = 30
     volume_type           = "gp3"
     delete_on_termination = true
     encrypted             = true

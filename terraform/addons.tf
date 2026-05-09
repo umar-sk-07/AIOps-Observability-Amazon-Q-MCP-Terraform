@@ -88,18 +88,14 @@ module "eks_addons" {
     
     # Prometheus configuration
     set = [
-      # Enable persistent storage for Prometheus
+      # Disable persistent storage for Prometheus (use emptyDir for simplicity)
+      {
+        name  = "prometheus.prometheusSpec.storageSpec"
+        value = "null"
+      },
       {
         name  = "prometheus.prometheusSpec.retention"
         value = "7d"
-      },
-      {
-        name  = "prometheus.prometheusSpec.storageSpec.volumeClaimTemplate.spec.accessModes[0]"
-        value = "ReadWriteOnce"
-      },
-      {
-        name  = "prometheus.prometheusSpec.storageSpec.volumeClaimTemplate.spec.resources.requests.storage"
-        value = "10Gi"
       },
       # Enable service monitors for application metrics
       {
