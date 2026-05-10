@@ -11,16 +11,16 @@ spec:
     - name: retail-store-pod-alerts
       interval: 30s
       rules:
-        # Alert when any pod restarts more than 3 times in 5 minutes
+        # Alert when any pod restarts more than 3 times in 15 minutes
         - alert: PodCrashLooping
-          expr: rate(kube_pod_container_status_restarts_total{namespace="retail-store"}[5m]) > 0.6
-          for: 2m
+          expr: increase(kube_pod_container_status_restarts_total{namespace="retail-store"}[15m]) > 3
+          for: 0m
           labels:
             severity: critical
             component: pod
           annotations:
             summary: "Pod {{ $labels.namespace }}/{{ $labels.pod }} is crash looping"
-            description: "Pod {{ $labels.pod }} in namespace {{ $labels.namespace }} has restarted {{ $value }} times in the last 5 minutes."
+            description: "Pod {{ $labels.pod }} in namespace {{ $labels.namespace }} has restarted {{ $value | printf \"%.0f\" }} times in the last 15 minutes."
             
         # Alert when pod is not ready
         - alert: PodNotReady

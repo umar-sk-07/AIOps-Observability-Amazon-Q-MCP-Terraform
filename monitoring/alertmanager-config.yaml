@@ -17,26 +17,32 @@ stringData:
       group_wait: 10s
       group_interval: 10s
       repeat_interval: 12h
-      receiver: 'aiops-receiver'
+      receiver: 'null-receiver'
       routes:
-        # Critical alerts go immediately
+        # Only retail-store namespace alerts go to AIOps EC2
         - match:
-            severity: critical
+            namespace: retail-store
           receiver: 'aiops-receiver'
-          group_wait: 0s
-          repeat_interval: 5m
-        
-        # Warning alerts are grouped
-        - match:
-            severity: warning
-          receiver: 'aiops-receiver'
-          group_wait: 30s
-          repeat_interval: 15m
+          continue: false
+          routes:
+            # Critical retail-store alerts go immediately
+            - match:
+                severity: critical
+              receiver: 'aiops-receiver'
+              group_wait: 0s
+              repeat_interval: 5m
+            # Warning retail-store alerts are grouped
+            - match:
+                severity: warning
+              receiver: 'aiops-receiver'
+              group_wait: 30s
+              repeat_interval: 15m
     
     receivers:
+      - name: 'null-receiver'
       - name: 'aiops-receiver'
         webhook_configs:
-          - url: 'http://10.0.0.81:5000/alert'
+          - url: 'http://10.0.0.70:5000/alert'
             send_resolved: true
             http_config:
               follow_redirects: true

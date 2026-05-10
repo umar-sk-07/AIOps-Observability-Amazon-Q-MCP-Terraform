@@ -139,7 +139,7 @@ data "aws_ami" "amazon_linux_2023" {
 
 # AWS Key Pair for SSH access
 resource "aws_key_pair" "ec2_ai_key" {
-  key_name   = "${var.cluster_name}-ec2-ai-key"
+  key_name   = "ec2-ai"
   public_key = file("${path.module}/ec2-ai.pub")
 
   tags = merge(
@@ -171,7 +171,7 @@ resource "aws_security_group" "ai_server_sg" {
     from_port   = 5000
     to_port     = 5000
     protocol    = "tcp"
-    cidr_blocks = [var.vpc_cidr] # Allow from VPC
+    cidr_blocks = [var.vpc_cidr] # Allow from entire VPC
   }
 
   # HTTP access
@@ -299,8 +299,8 @@ resource "aws_iam_instance_profile" "ai_server_profile" {
 
 # EC2 instance
 resource "aws_instance" "ai_server" {
-  ami           = data.aws_ami.amazon_linux_2023.id
-  instance_type = "t3.micro" # Cost-effective for portfolio
+  ami           = "ami-0cb927232a3cb6a48" # Custom AMI with pre-configured AI tools
+  instance_type = "t2.large" # Cost-effective for portfolio
 
   # SSH key pair
   key_name = aws_key_pair.ec2_ai_key.key_name
@@ -309,6 +309,7 @@ resource "aws_instance" "ai_server" {
   subnet_id                   = module.vpc.public_subnets[0]
   vpc_security_group_ids      = [aws_security_group.ai_server_sg.id]
   associate_public_ip_address = true
+  private_ip                  = "10.0.0.70" # Static private IP for AlertManager webhook
 
   # IAM configuration
   iam_instance_profile = aws_iam_instance_profile.ai_server_profile.name

@@ -1,9 +1,5 @@
 # =============================================================================
-# LOKI LOGGING STACK INSTALLATION
-# =============================================================================
-
-# =============================================================================
-# LOKI HELM INSTALLATION
+# LOKI LOGGING STACK INSTALLATION - WORKING CONFIGURATION
 # =============================================================================
 
 resource "helm_release" "loki" {
@@ -11,36 +7,38 @@ resource "helm_release" "loki" {
 
   name             = "loki"
   namespace        = "monitoring"
-  create_namespace = false  # monitoring namespace created by kube-prometheus-stack
+  create_namespace = false
 
   repository = "https://grafana.github.io/helm-charts"
-  chart      = "loki-stack"
-  version    = "2.10.2"  # Stable version
+  chart      = "loki"
+  version    = "6.16.0"
 
-  # Loki configuration values
+  timeout = 600
+
   values = [
     yamlencode({
-      # Loki server configuration
-      loki = {
-        enabled = true
+      # Deploy in SingleBinary mode
+      deploymentMode = "SingleBinary"
+      
+      # Single binary configuration
+      singleBinary = {
+        replicas = 1
         
-        # Disable authentication for internal cluster use
-        auth_enabled = false
+        # Add emptyDir volume for writable storage
+        extraVolumes = [
+          {
+            name = "loki-data"
+            emptyDir = {}
+          }
+        ]
         
-        # Single binary mode for simplicity
-        deploymentMode = "SingleBinary"
+        extraVolumeMounts = [
+          {
+            name = "loki-data"
+            mountPath = "/var/loki"
+          }
+        ]
         
-        # Storage configuration - filesystem (ephemeral)
-        storage = {
-          type = "filesystem"
-        }
-        
-        # Retention configuration
-        limits_config = {
-          retention_period = "168h"  # 7 days
-        }
-        
-        # Resource limits
         resources = {
           requests = {
             cpu    = "100m"
@@ -51,13 +49,80 @@ resource "helm_release" "loki" {
             memory = "256Mi"
           }
         }
+        
+        persistence = {
+          enabled = false
+        }
       }
       
-      # Promtail configuration (log collection agent)
-      promtail = {
-        enabled = true
+      # Disable other modes
+      backend = {
+        replicas = 0
+      }
+      read = {
+        replicas = 0
+      }
+      write = {
+        replicas = 0
+      }
+      
+      # Loki configuration
+      loki = {
+        auth_enabled = false
         
-        # Resource limits for Promtail DaemonSet
+        commonConfig = {
+          replication_factor = 1
+          path_prefix = "/var/loki"
+        }
+        
+        storage = {
+          type = "filesystem"
+        }
+        
+        schemaConfig = {
+          configs = [
+            {
+              from = "2024-01-01"
+              store = "tsdb"
+              object_store = "filesystem"
+              schema = "v13"
+              index = {
+                prefix = "index_"
+                period = "24h"
+              }
+            }
+          ]
+        }
+        
+        limits_config = {
+          retention_period = "168h"
+          ingestion_rate_mb = 4
+          ingestion_burst_size_mb = 6
+          per_stream_rate_limit = "3MB"
+          per_stream_rate_limit_burst = "15MB"
+        }
+        
+        server = {
+          http_listen_port = 3100
+          grpc_listen_port = 9095
+        }
+        
+        # Disable ruler to avoid read-only filesystem issues
+        ruler = {
+          enable_api = false
+          storage = {
+            type = "local"
+            local = {
+              directory = "/var/loki/rules"
+            }
+          }
+        }
+      }
+      
+      # Gateway configuration
+      gateway = {
+        enabled = true
+        replicas = 1
         resources = {
           requests = {
             cpu    = "50m"
@@ -68,29 +133,30 @@ resource "helm_release" "loki" {
             memory = "128Mi"
           }
         }
-        
-        # Configure Promtail to extract Kubernetes labels
-        config = {
-          snippets = {
-            pipelineStages = [
-              {
-                docker = {}
-              },
-              {
-                cri = {}
-              }
-            ]
+      }
+      
+      # Disable monitoring features
+      monitoring = {
+        selfMonitoring = {
+          enabled = false
+          grafanaAgent = {
+            installOperator = false
           }
+        }
+        lokiCanary = {
+          enabled = false
         }
       }
       
-      # Disable Grafana (already installed by kube-prometheus-stack)
-      grafana = {
+      test = {
         enabled = false
       }
       
-      # Disable Prometheus (already installed)
-      prometheus = {
+      chunksCache = {
+        enabled = false
+      }
+      
+      resultsCache = {
         enabled = false
       }
     })
@@ -102,10 +168,47 @@ resource "helm_release" "loki" {
   ]
 }
 
-# =============================================================================
-# CONFIGURE LOKI AS GRAFANA DATASOURCE
-# =============================================================================
+# Promtail for log collection
+resource "helm_release" "promtail" {
+  count = var.enable_monitoring ? 1 : 0
 
+  name             = "promtail"
+  namespace        = "monitoring"
+  create_namespace = false
+
+  repository = "https://grafana.github.io/helm-charts"
+  chart      = "promtail"
+  version    = "6.16.5"
+
+  values = [
+    yamlencode({
+      config = {
+        clients = [
+          {
+            url = "http://loki-gateway/loki/api/v1/push"
+          }
+        ]
+      }
+      
+      resources = {
+        requests = {
+          cpu    = "50m"
+          memory = "64Mi"
+        }
+        limits = {
+          cpu    = "100m"
+          memory = "128Mi"
+        }
+      }
+    })
+  ]
+
+  depends_on = [
+    helm_release.loki
+  ]
+}
+
+# Grafana datasource
 resource "kubectl_manifest" "grafana_loki_datasource" {
   count = var.enable_monitoring ? 1 : 0
 
@@ -127,7 +230,7 @@ resource "kubectl_manifest" "grafana_loki_datasource" {
             name      = "Loki"
             type      = "loki"
             access    = "proxy"
-            url       = "http://loki:3100"
+            url       = "http://loki-gateway:80"
             isDefault = false
             jsonData = {
               maxLines = 1000
@@ -140,6 +243,7 @@ resource "kubectl_manifest" "grafana_loki_datasource" {
 
   depends_on = [
     helm_release.loki,
+    helm_release.promtail,
     module.eks_addons
   ]
 }
