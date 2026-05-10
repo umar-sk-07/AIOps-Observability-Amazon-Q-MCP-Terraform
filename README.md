@@ -1,400 +1,362 @@
-# Retail Store Sample App - GitOps with Amazon EKS Auto Mode
- 
-![Banner](./docs/images/banner.png)
- 
+# AIOps: Intelligent Incident Response & Remediation on AWS
+
 <div align="center">
-  <div align="center">
 
-[![Stars](https://img.shields.io/github/stars/umar-sk-07/AIOps-Observability-Amazon-Q-MCP-Terraform)](Stars)
-![GitHub License](https://img.shields.io/github/license/umar-sk-07/AIOps-Observability-Amazon-Q-MCP-Terraform?color=green)
-![Dynamic JSON Badge](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fumar-sk-07%2FAIOps-Observability-Amazon-Q-MCP-Terraform%2Frefs%2Fheads%2Fmain%2F.release-please-manifest.json&query=%24%5B%22.%22%5D&label=release)
+![Banner](./docs/images/banner.png)
 
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](./LICENSE)
+![Kubernetes](https://img.shields.io/badge/Kubernetes-1.33-326CE5?logo=kubernetes&logoColor=white)
+![Terraform](https://img.shields.io/badge/Terraform-IaC-7B42BC?logo=terraform&logoColor=white)
+![ArgoCD](https://img.shields.io/badge/ArgoCD-GitOps-EF7B4D?logo=argo&logoColor=white)
+![AWS EKS](https://img.shields.io/badge/AWS-EKS%20Auto%20Mode-FF9900?logo=amazonaws&logoColor=white)
+![Amazon Q](https://img.shields.io/badge/Amazon%20Q-Agentic%20AI-232F3E?logo=amazonaws&logoColor=white)
 
-  </div>
+**A production-grade AIOps platform where Amazon Q autonomously investigates Kubernetes incidents, performs root cause analysis, and executes human-approved remediations — all in real time.**
 
-  <strong>
-  <h2>AWS Containers Retail Sample</h2>
-  </strong>
 </div>
 
-This is a sample application designed to illustrate various concepts related to containers on AWS. It presents a sample retail store application including a product catalog, shopping cart and checkout, deployed using modern DevOps practices including GitOps and Infrastructure as Code.
+---
 
-## Table of Contents
+## What This Project Does
 
-- [Overview](#overview)
-- [Architecture](#architecture)
-- [Prerequisites](#prerequisites)
-- [Quick Start](#quick-start)
-- [Branch Strategy](#branch-strategy)
-- [Getting Started](#getting-started)
-- [GitOps Workflow](#gitops-workflow)
-- [EKS Auto Mode](#eks-auto-mode)
-- [Infrastructure Components](#infrastructure-components)
-- [CI/CD Pipeline](#cicd-pipeline)
-- [Monitoring and Observability](#monitoring-and-observability)
-- [Cleanup](https://github.com/umar-sk-07/AIOps-Observability-Amazon-Q-MCP-Terraform/blob/main/README.md#step-12-cleanup)
-- [Troubleshooting](#troubleshooting)
+When a Kubernetes alert fires, most teams get paged and manually dig through logs, events, and metrics to figure out what broke. This project eliminates that manual loop.
 
-## Overview
+**The full automated flow:**
 
-The Retail Store Sample App demonstrates a modern microservices architecture deployed on AWS EKS using GitOps principles. The application consists of multiple services that work together to provide a complete retail store experience:
+1. AlertManager detects an issue in the EKS cluster and fires a webhook
+2. A FastAPI server on EC2 receives the alert and triggers Amazon Q CLI
+3. Amazon Q (agentic AI) investigates the cluster autonomously using MCP tools
+4. Amazon Q posts a full Root Cause Analysis + 3 remediation options to Discord
+5. A human replies with `1`, `2`, or `3` to approve an action
+6. Amazon Q executes the approved remediation via EKS MCP
+7. Amazon Q posts final confirmation to Discord
 
+**No one touches `kubectl` manually. No one digs through logs. The AI does the investigation — humans make the call.**
 
-- **UI Service**: Java-based frontend
-- **Catalog Service**: Go-based product catalog API
-- **Cart Service**: Java-based shopping cart API
-- **Orders Service**: Java-based order management API
-- **Checkout Service**: Node.js-based checkout orchestration API
+---
 
+## System Architecture
+
+![AIOps Architecture](./docs/images/ChatGPT%20Image%20May%2010%2C%202026%2C%2003_35_33%20PM.png)
+
+### How the Three Layers Connect
+
+**Layer 1 — Amazon EKS Cluster**
+- 5 retail store microservices running as containers
+- ArgoCD managing GitOps deployments
+- Full observability stack: Prometheus (metrics), Loki (logs), Grafana (dashboards), AlertManager (alerts)
+
+**Layer 2 — EC2 AI Engine**
+- **FastAPI**: Receives AlertManager webhooks, maintains incident conversation history, manages the remediation workflow
+- **Amazon Q CLI**: The agentic reasoning layer — investigates, reasons, decides, and acts
+- **MCP Tool Layer**:
+  - **EKS MCP** (`awslabs.eks-mcp-server`) — kubectl access, cluster state, pod logs, events, scaling
+  - **Discord MCP** (`barryy625/mcp-discord`) — posts RCA to Discord, polls for human replies
+
+**Layer 3 — Discord Incident Channel**
+- Amazon Q posts: Incident Summary → Root Cause Analysis → 3 remediation options
+- Human replies: `"1"`, `"2"`, or `"3"` to approve
+- Amazon Q executes the approved action and posts final confirmation
+
+---
 
 ## Application Architecture
 
-The application has been deliberately over-engineered to generate multiple de-coupled components. These components generally have different infrastructure dependencies, and may support multiple "backends" (example: Carts service supports MongoDB or DynamoDB).
+The retail store is a 5-service microservices application — deliberately decoupled with different languages, databases, and Helm charts to simulate real enterprise complexity.
 
-![Architecture](https://github.com/aws-containers/retail-store-sample-app/raw/main/docs/images/architecture.png)
+![Application Architecture](./docs/images/application-architecture.png)
 
-| Component                  | Language | Container Image                                                             | Helm Chart                                                                        | Description                             |
-| -------------------------- | -------- | --------------------------------------------------------------------------- | --------------------------------------------------------------------------------- | --------------------------------------- |
-| [UI](./src/ui/)            | Java     | [Link](https://gallery.ecr.aws/aws-containers/retail-store-sample-ui)       | [Link](src/ui/chart/values.yaml)    | Store user interface                    |
-| [Catalog](./src/catalog/)  | Go       | [Link](https://gallery.ecr.aws/aws-containers/retail-store-sample-catalog)  | [Link](src/catalog/chart/values.yaml)  | Product catalog API                     |
-| [Cart](./src/cart/)        | Java     | [Link](https://gallery.ecr.aws/aws-containers/retail-store-sample-cart)     | [Link](src/cart/chart/values.yaml)     | User shopping carts API                 |
-| [Orders](./src/orders)     | Java     | [Link](https://gallery.ecr.aws/aws-containers/retail-store-sample-orders)   | [Link](src/orders/chart/values.yaml)   | User orders API                         |
-| [Checkout](./src/checkout) | Node     | [Link](https://gallery.ecr.aws/aws-containers/retail-store-sample-checkout) | [Link](src/checkout/chart/values.yaml) | API to orchestrate the checkout process |
+![Containers](./docs/images/containers.png)
 
+| Service | Language | Database | Description |
+|---------|----------|----------|-------------|
+| **UI** | Java 21 / Spring Boot 3.5 | — | Store frontend |
+| **Catalog** | Go 1.23 / Gin | MySQL | Product catalog REST API |
+| **Cart** | Java 21 / Spring Boot 3.5 | Amazon DynamoDB | Shopping cart API |
+| **Orders** | Java 21 / Spring Boot 3.5 | PostgreSQL + RabbitMQ | Order processing API |
+| **Checkout** | Node.js 20 | — | Checkout orchestration API |
 
-## Infrastructure Architecture
+All services expose Prometheus metrics, health check endpoints, chaos engineering endpoints, and OpenTelemetry instrumentation.
 
-The Infrastructure Architecture follows cloud-native best practices:
+### Application UI
 
-- **Microservices**: Each component is developed and deployed independently
-- **Containerization**: All services run as containers on Kubernetes
-- **GitOps**: Infrastructure and application deployment managed through Git
-- **Infrastructure as Code**: All AWS resources defined using Terraform
-- **CI/CD**: Automated build and deployment pipelines with GitHub Actions
+| Default Theme | Orange Theme |
+|:---:|:---:|
+| ![Default Theme](./docs/images/theme-default.png) | ![Orange Theme](./docs/images/theme-orange.png) |
 
-![EKS](docs/images/EKS.gif)
+![Screenshot](./docs/images/screenshot.png)
 
+---
 
+## Infrastructure
 
-## Quick Start
+Everything is provisioned with a single `terraform apply`.
 
-**Want to deploy immediately?** Follow these steps for a basic deployment:
+```
+terraform/
+├── main.tf        # VPC + EKS cluster (Auto Mode)
+├── addons.tf      # NGINX Ingress, Cert Manager, Prometheus, Loki
+├── argocd.tf      # ArgoCD Helm installation
+├── loki.tf        # Loki logging stack
+├── security.tf    # Security groups
+├── variables.tf   # Input variables
+└── outputs.tf     # Cluster endpoint, load balancer URL
+```
 
-1. **Install Prerequisites**: AWS CLI, Terraform, kubectl, Docker, Helm
-2. **Configure AWS**: `aws configure` with appropriate credentials
-3. **Clone Repository**: `git clone https://github.com/umar-sk-07/AIOps-Observability-Amazon-Q-MCP-Terraform.git`
-4. **Deploy Infrastructure**: Run Terraform in two phases (see [Getting Started](#getting-started))
-5. **Access Application**: Get load balancer URL and browse the retail store
+**What gets provisioned:**
+- VPC with public/private subnets across 3 AZs + NAT Gateway
+- EKS Cluster (Kubernetes 1.33) with **Auto Mode** — no node group management
+- NGINX Ingress Controller with Network Load Balancer
+- Cert Manager for SSL
+- ArgoCD for GitOps
+- Kube Prometheus Stack (Prometheus + Grafana + AlertManager)
+- Loki + Promtail for log aggregation
 
-**Need advanced GitOps workflow?** See [BRANCHING_STRATEGY.md](./BRANCHING_STRATEGY.md) for automated CI/CD setup.
+![EKS Deployment](docs/images/EKS.gif)
 
-## Branch Strategy
+---
 
-This repository uses a **dual-branch approach** for different deployment scenarios:
+## GitOps with ArgoCD
 
-### 🌐 **Public Application (Main Branch)**
-- **Purpose**: Simple deployment with public images
-- **Images**: Public ECR (stable versions like v1.2.2)
-- **Deployment**: Manual control with umbrella chart
-- **Updates**: Manual only
-- **Best for**: Demos, learning, quick testing, simple deployments
+ArgoCD continuously reconciles the cluster against this Git repository. Any drift is automatically corrected.
 
-### 🏭 **Production (GitOps Branch)**
-- **Purpose**: Full production workflow with CI/CD pipeline
-- **Images**: Private ECR (auto-updated with commit hashes)
-- **Deployment**: Automated via GitHub Actions
-- **Updates**: Automatic on code changes
-- **Best for**: Production environments, automated workflows, enterprise deployments
+![ArgoCD UI](./docs/images/argocd-ui.png)
 
-> **📚 For detailed branching strategy, CI/CD setup, and advanced workflows, see [BRANCHING_STRATEGY.md](./BRANCHING_STRATEGY.md)**
+```
+Git Push → ArgoCD detects change → Helm renders manifests → Applied to EKS
+                                          ↑
+                               prune: true + selfHeal: true
+```
+
+**Dual-branch strategy:**
+
+| Branch | Images | CI/CD | Use Case |
+|--------|--------|-------|----------|
+| `main` | Public ECR (v1.2.2) | Manual | Demos, quick testing |
+| `production` | Private ECR (commit hash) | GitHub Actions | Full GitOps workflow |
+
+On the `production` branch, any push to `src/` triggers GitHub Actions → builds Docker image → pushes to ECR → ArgoCD auto-syncs to EKS.
+
+---
+
+## Monitoring & Observability
+
+```
+monitoring/
+├── prometheus-rules.yaml    # 8 alert rules
+├── alertmanager-config.yaml # Routes retail-store alerts to AIOps webhook
+├── podmonitor.yaml          # Prometheus scrape config for all services
+└── kustomization.yaml
+```
+
+### Alert Rules
+
+| Alert | Severity | Condition |
+|-------|----------|-----------|
+| `PodCrashLooping` | Critical | >3 restarts in 15 min |
+| `ServiceDown` | Critical | 0 replicas available for 1 min |
+| `HighErrorRate` | Critical | >5% HTTP 5xx for 2 min |
+| `PodNotReady` | Warning | Not Running for 5 min |
+| `HighCPUUsage` | Warning | >80% CPU limit for 5 min |
+| `HighMemoryUsage` | Warning | >80% memory limit for 5 min |
+| `HighLatency` | Warning | p95 latency >1s for 5 min |
+| `DeploymentReplicasMismatch` | Warning | Desired ≠ Available for 5 min |
+
+AlertManager routes only `retail-store` namespace alerts to the AIOps webhook receiver on EC2. Critical alerts fire immediately; warnings are grouped.
+
+---
+
+## AIOps Incident Response — Deep Dive
+
+### The Agentic Investigation Loop
+
+When Amazon Q receives an alert, it doesn't follow a fixed script. It reasons about the alert type and runs targeted checks:
+
+**Always checked:**
+- Current pod status in `retail-store` namespace
+- Recent events for the affected pod/deployment
+- Pod logs (current + previous container if restarted)
+- Deployment replica status
+
+**Checked based on alert type:**
+- Node resource pressure → for CPU/memory alerts
+- HPA status → for replica mismatch alerts
+- Rollout history → for crash or error rate alerts
+- Dependency service health → for latency alerts (e.g. if checkout is slow, also checks orders and cart)
+- ArgoCD sync status → for any deployment-related alert
+
+### What Discord Sees
+
+**Immediate notification:**
+```
+🔴 ALERT: PodCrashLooping
+Investigating... analyzing cluster with MCP tools.
+Namespace: retail-store | Target: catalog-7d9f8b-xxx | Severity: critical
+```
+
+**RCA posted after investigation:**
+```
+🔍 RCA Complete: PodCrashLooping
+
+📋 Root Cause:
+OOMKilled — container memory limit (256Mi) exceeded under load.
+Exit code 137 confirmed. Previous container logs show heap exhaustion.
+
+📊 Evidence:
+- kube_pod_container_status_restarts_total: 5 in last 10 min
+- Last exit reason: OOMKilled
+- Memory usage: 98% of limit at time of crash
+
+🔧 Remediation Options:
+
+1️⃣  Quick Fix (~2 min):
+Delete and restart the affected pod
+
+2️⃣  Standard Fix (~10 min):
+Scale deployment to 0 then back up, verify all pods healthy
+
+3️⃣  Deep Fix (~30 min):
+Patch memory limits on deployment, verify stability, re-enable ArgoCD auto-sync
+
+❌  Type 'no' to take no action
+⏰  Waiting for your response (timeout: 5 minutes)
+```
+
+**After human replies `"2"`:**
+```
+✅ Remediation Complete: PodCrashLooping
+
+Action Taken: Scaled deployment to 0, then back to 2 replicas
+Result: All pods Running and Ready
+Verification: 2/2 replicas available, no restarts in last 2 min
+```
+
+### Approval Boundaries
+
+| Operation | Approval Required |
+|-----------|------------------|
+| `kubectl get`, `describe`, `logs`, `top`, `events` | Never — read-only, always permitted |
+| Posting to Discord | Never |
+| `kubectl delete`, `scale`, `patch`, `rollout restart` | Always — human must reply first |
+| ArgoCD sync or rollback | Always |
+| No human response within 5 min | Auto-exit, no action taken |
+
+---
 
 ## Getting Started
 
 ### Prerequisites
 
-1. **Install Prerequisites**: AWS CLI, Terraform, kubectl, Docker, Helm
-2. **Configure AWS**: `aws configure` with appropriate credentials
-3. **Clone Repository**: `git clone https://github.com/umar-sk-07/AIOps-Observability-Amazon-Q-MCP-Terraform.git`
-4. **Deploy Infrastructure**: Run Terraform in two phases (see [Getting Started](#getting-started))
-5. **Access Application**: Get load balancer URL and browse the retail store
+| Tool | Version |
+|------|---------|
+| AWS CLI | v2+ |
+| Terraform | 1.0+ |
+| kubectl | 1.33+ |
+| Helm | 3.0+ |
 
-### **Required Tools**
-
-| Tool          | Version | Installation                                                                         |
-| ------------- | ------- | ------------------------------------------------------------------------------------ |
-| **AWS CLI**   | v2+     | [Install Guide](https://docs.aws.amazon.com/cli/latest/userguide/install-cliv2.html) |
-| **Terraform** | 1.0+    | [Install Guide](https://developer.hashicorp.com/terraform/install)                   |
-| **kubectl**   | 1.33+   | [Install Guide](https://kubernetes.io/docs/tasks/tools/)                             |
-| **Docker**    | 20.0+   | [Install Guide](https://docs.docker.com/get-docker/)                                 |
-| **Helm**      | 3.0+    | [Install Guide](https://helm.sh/docs/intro/install/)                                 |
-| **Git**       | 2.0+    | [Install Guide](https://git-scm.com/downloads) 
-
-Follow these steps to **install Prerequisites:**
-
-
-### **Quick Installation Scripts**
-
-<details>
-<summary><strong>🔧 One-Click Installation</strong></summary>
+### 1. Configure AWS
 
 ```bash
-#!/bin/bash
-# Install all prerequisites
-
-# AWS CLI
-curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-unzip awscliv2.zip
-sudo ./aws/install
-
-# Terraform
-curl -fsSL https://apt.releases.hashicorp.com/gpg | sudo apt-key add -
-sudo apt-add-repository "deb [arch=amd64] https://apt.releases.hashicorp.com $(lsb_release -cs) main"
-sudo apt-get update && sudo apt-get install terraform
-
-# kubectl
-curl -LO "https://dl.k8s.io/release/v1.33.3/bin/linux/amd64/kubectl"
-chmod +x kubectl
-sudo mv kubectl /usr/local/bin/
-
-# Docker
-curl -fsSL https://get.docker.com -o get-docker.sh
-sudo sh get-docker.sh
-
-# Helm
-curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
-
-# Verify installations
-aws --version
-terraform --version
-kubectl version --client
-docker --version
-helm version
-```
-
-</details>
-
-
-## Follow these steps to deploy the application:
-
-### Step 1. Configure AWS with **`Root User`** Credentials:
-
-  Ensure your AWS CLI is configured with the **Root user credentials:**
-
-```sh
 aws configure
 ```
 
-### Step 2. Clone the Repository:
+### 2. Clone and deploy infrastructure
 
-```sh
-git clone https://github.com/umar-sk-07/AIOps-Observability-Amazon-Q-MCP-Terraform.git
-```
-
-> [!IMPORTANT]
-> ### Step 3: Choose Your Deployment Strategy
->
-> **For Public Application (Main Branch):**
-> - Uses stable public ECR images (v1.2.2)
-> - Manual deployment control
-> - No GitHub Actions required
-> - Skip to Step 4 - infrastructure is ready
->
-> **For Production (GitOps Branch):**
-> - Uses private ECR with automated CI/CD
-> - Requires GitHub Actions setup
-> - See [BRANCHING_STRATEGY.md](./BRANCHING_STRATEGY.md) for complete setup
-
-
-### Step 4. Deploy Infrastructure with Terraform:
-
-```sh
-cd retail-store-sample-app/terraform/
+```bash
+git clone <your-repo-url>
+cd retail-store-sample-app/terraform
 terraform init
 terraform apply --auto-approve
 ```
 
-<img width="1205" height="292" alt="image" src="https://github.com/user-attachments/assets/6f1e407e-4a4e-4a4c-9bdf-0c9b89681368" />
-
-This creates the core infrastructure, including:
-- VPC with public and private subnets
-- Amazon EKS cluster with Auto Mode enabled
-- Security groups and IAM roles
-
-And deploys:
-- ArgoCD for Setup GitOps
-- NGINX Ingress Controller
-- Cert Manager for SSL certificates
-
-
-### Step 5: Update kubeconfig to Access the Amazon EKS Cluster:
-```
-aws eks update-kubeconfig --name retail-store --region <region>
-```
-
-> Application is live with Public image:
-
-- Get your ingress EXTERNAL-IP and paste it in the browser to access retail-store application.
-    ```sh
-    kubectl get svc -n ingress-nginx
-    ```
-
-> [!NOTE]
-> Let's move forward with GitOps principle utilising Amazon private registry to create private registry and store images.
-
-### Step 6: GitHub Actions (Production Branch Only)
-
-> **Note**: This step is only required if you're using the **Production branch** for automated deployments. Skip this step if using the **Public Application branch** for simple deployment.
-
-For GitHub Actions, first configure secrets so the pipelines can be automatically triggered:
-
-**Create an IAM User, policies, and generate credentials**
-
-**Go to your GitHub repo → Settings → Secrets and variables → Actions → New repository secret.**
-
-
-| Secret Name           | Value                              |
-|-----------------------|------------------------------------|
-| `AWS_ACCESS_KEY_ID`   | `Your AWS Access Key ID`           |
-| `AWS_SECRET_ACCESS_KEY` | `Your AWS Secret Access Key`     |
-| `AWS_REGION`          | `region-name`                       |
-| `AWS_ACCOUNT_ID`        | `your-account-id` |
-
-
-
-> [!IMPORTANT]
-> Once the entire cluster is created, any changes pushed to the repository will automatically trigger GitHub Actions.
-
-GitHub Actions will automatically build and push the updated Docker images to Amazon ECR.
-
-
-
-<img width="2868" height="1130" alt="image" src="https://github.com/user-attachments/assets/f29c3416-d630-4463-81d2-aaa8af9a02da" />
-
-
-### Verify Deployment
-
-Check if the nodes are running:
+### 3. Configure kubectl
 
 ```bash
+aws eks update-kubeconfig --name retail-store --region ap-south-1
 kubectl get nodes
 ```
 
-### Step 7: Access the Application:
-
-The application is exposed through the NGINX Ingress Controller. Get the load balancer URL:
+### 4. Access the application
 
 ```bash
+# Get load balancer external IP
 kubectl get svc -n ingress-nginx
+
+# Verify all services are running
+kubectl get pods -n retail-store
 ```
 
-Use the EXTERNAL-IP of the ingress-nginx-controller service to access the application.
-
-<img width="2912" height="1756" alt="image" src="https://github.com/user-attachments/assets/095077d6-d3cb-48f6-b021-e977db5fb242" />
-
-### Step 8: Argo CD Automated Deployment:
-
-**Verify ArgoCD installation**
-
-```
-kubectl get pods -n argocd
-```
-
-
-### Step 9: Port-forward to Argo CD UI and login:
-
-**Get ArgoCD admin password**
-```
-kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' | base64 -d
-```
-
-**Port-forward to Argo CD UI**
-```
-kubectl port-forward svc/argocd-server -n argocd 8080:443 &
-```
-
-Open your browser and navigate to:
-https://localhost:8080
-
-Username: admin 
-
-Password: <output of previous command>
-
-### Step 10: Access ArgoCD UI
-
-Once ArgoCD is deployed, you can access the web interface:
-
-![ArgoCD UI Dashboard](./docs/images/argocd-ui.png)
-
-The ArgoCD UI provides:
-- **Application Status**: Real-time sync status of all services
-- **Resource View**: Detailed view of Kubernetes resources
-- **Sync Operations**: Manual sync and rollback capabilities
-- **Health Monitoring**: Application and resource health status
-
-### Step 11: Monitor Application Deployment
+### 5. Access ArgoCD
 
 ```bash
-kubectl get pods -n retail-store
-kubectl get ingress -n retail-store
+# Get admin password
+kubectl -n argocd get secret argocd-initial-admin-secret \
+  -o jsonpath='{.data.password}' | base64 -d
+
+# Port-forward
+kubectl port-forward svc/argocd-server -n argocd 8080:443
+# Open https://localhost:8080 — username: admin
 ```
 
-### Step 12: Cleanup
-To delete all resources created by Terraform:
+### 6. Deploy monitoring configuration
+
+```bash
+# Update alertmanager-config.yaml with your EC2 webhook IP first, then:
+kubectl apply -f monitoring/prometheus-rules.yaml
+kubectl apply -f monitoring/podmonitor.yaml
+kubectl apply -f monitoring/alertmanager-config.yaml
+
+kubectl rollout restart statefulset \
+  alertmanager-kube-prometheus-stack-alertmanager -n monitoring
 ```
-terraform destroy --auto-approve
+
+### 7. Access observability UIs
+
+```bash
+# Grafana (admin / prom-operator)
+kubectl port-forward -n monitoring svc/kube-prometheus-stack-grafana 3000:80
+
+# Prometheus
+kubectl port-forward -n monitoring svc/kube-prometheus-stack-prometheus 9090:9090
+
+# AlertManager
+kubectl port-forward -n monitoring svc/kube-prometheus-stack-alertmanager 9093:9093
 ```
-
-<img width="1139" height="439" alt="image" src="https://github.com/user-attachments/assets/5258761a-01c4-49d0-b6f3-997fc10a9f35" />
-
-> [!NOTE]
-> ECR Repositories you need to Delete it from AWS Console Manually.
-
-
-
-## Troubleshooting
-
-### Common Issues
-
-#### **Image Pull Errors**
-```
-Error: Failed to pull image "123456789012.dkr.ecr.ap-south-1.amazonaws.com/retail-store-ui:abc1234"
-```
-**Solutions**:
-1. Ensure you're using the correct branch for your deployment strategy
-2. For Production branch: Check GitHub Actions completed successfully
-3. For Public Application branch: Verify you're using public ECR images
-4. Check AWS credentials and ECR permissions
-
-#### **GitHub Actions Not Triggering**
-**Solutions**:
-1. Ensure changes are in `src/` directory
-2. Verify you're on the `production` branch (gitops)
-3. Check GitHub Actions is enabled in repository settings
-4. Review [BRANCHING_STRATEGY.md](./BRANCHING_STRATEGY.md) for detailed setup
-
-### Getting Help
-
-- **Basic deployment issues**: Check this README
-- **Advanced GitOps issues**: See [BRANCHING_STRATEGY.md](./BRANCHING_STRATEGY.md)
-- **Infrastructure issues**: Review Terraform logs
-- **Application issues**: Check ArgoCD UI and kubectl logs
-
-## License
-
-This project is licensed under the Apache License 2.0 - see the [LICENSE](./LICENSE) file for details.
-
-## Support
-
-- **Issues**: [GitHub Issues](https://github.com/umar-sk-07/AIOps-Observability-Amazon-Q-MCP-Terraform/issues)
-- **Discord**: [TrainWithShubhamCommunity](https://discord.gg/kGEr9mR5gT)
 
 ---
 
-<div align="center">
+## Cleanup
 
-**⭐ Star this repository if you found it helpful!**
+```bash
+cd terraform
+terraform destroy --auto-approve
+```
 
-**🔄 For advanced GitOps workflows, see [BRANCHING_STRATEGY.md](./BRANCHING_STRATEGY.md)**
+> ECR repositories must be deleted manually from the AWS Console.
 
-</div>
+---
 
+## Tech Stack
+
+| Category | Technologies |
+|----------|-------------|
+| **Cloud** | AWS (EKS, EC2, VPC, DynamoDB, ECR, IAM) |
+| **IaC** | Terraform, AWS EKS Blueprints Addons |
+| **Orchestration** | Kubernetes 1.33, EKS Auto Mode |
+| **GitOps** | ArgoCD, Helm |
+| **CI/CD** | GitHub Actions |
+| **Ingress** | NGINX Ingress Controller, NLB |
+| **Monitoring** | Prometheus, Grafana, AlertManager |
+| **Logging** | Loki, Promtail |
+| **Tracing** | OpenTelemetry 2.17 |
+| **AIOps Engine** | Amazon Q CLI (agentic), FastAPI, MCP |
+| **MCP Tools** | EKS MCP, Discord MCP |
+| **Languages** | Java 21, Go 1.23, Node.js 20 |
+| **Frameworks** | Spring Boot 3.5, Gin, Express |
+| **Databases** | MySQL, PostgreSQL, Amazon DynamoDB, RabbitMQ |
+
+---
+
+## License
+
+Apache License 2.0 — see [LICENSE](./LICENSE) for details.
