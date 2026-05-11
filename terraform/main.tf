@@ -299,7 +299,7 @@ resource "aws_iam_instance_profile" "ai_server_profile" {
 
 # EC2 instance
 resource "aws_instance" "ai_server" {
-  ami           = "ami-0cb927232a3cb6a48" # Custom AMI with pre-configured AI tools
+  ami           = "ami-0e93cacc6f0be0b37" # Custom AMI with pre-configured AI tools
   instance_type = "t2.large" # Cost-effective for portfolio
 
   # SSH key pair
@@ -335,5 +335,11 @@ resource "aws_instance" "ai_server" {
       Name = "${var.cluster_name}-ai-server"
       Role = "AIOps-Webhook-Receiver"
     }
+  )
+
+  user_data = base64encode(<<-EOF
+    #!/bin/bash
+    aws eks update-kubeconfig --name ${local.cluster_name} --region ${var.aws_region}
+  EOF
   )
 }
