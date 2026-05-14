@@ -107,19 +107,19 @@ ingresses:
       nginx.ingress.kubernetes.io/proxy-send-timeout: "600"
       nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
     tls: []
-  # Domain-based access without SSL
-  - name: domain
-    className: "nginx"
-    hosts:
-      - retail-store.trainwithshubham.com
-    annotations:
-      nginx.ingress.kubernetes.io/ssl-redirect: "false"
-      nginx.ingress.kubernetes.io/force-ssl-redirect: "false"
-      nginx.ingress.kubernetes.io/proxy-body-size: "8m"
-      nginx.ingress.kubernetes.io/proxy-connect-timeout: "30"
-      nginx.ingress.kubernetes.io/proxy-send-timeout: "600"
-      nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
-    tls: []
+  # # Domain-based access without SSL
+  # - name: domain
+  #   className: "nginx"
+  #   hosts:
+  #     - retail-store.trainwithshubham.com
+  #   annotations:
+  #     nginx.ingress.kubernetes.io/ssl-redirect: "false"
+  #     nginx.ingress.kubernetes.io/force-ssl-redirect: "false"
+  #     nginx.ingress.kubernetes.io/proxy-body-size: "8m"
+  #     nginx.ingress.kubernetes.io/proxy-connect-timeout: "30"
+  #     nginx.ingress.kubernetes.io/proxy-send-timeout: "600"
+  #     nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
+  #   tls: []
 
 # Cert Manager Configuration (disabled)
 certManager:
