@@ -6,7 +6,6 @@
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](./LICENSE)
 ![Kubernetes](https://img.shields.io/badge/Kubernetes-1.33-326CE5?logo=kubernetes&logoColor=white)
-![Terraform](https://img.shields.io/badge/Terraform-IaC-7B42BC?logo=terraform&logoColor=white)
 ![ArgoCD](https://img.shields.io/badge/ArgoCD-GitOps-EF7B4D?logo=argo&logoColor=white)
 ![AWS EKS](https://img.shields.io/badge/AWS-EKS%20Auto%20Mode-FF9900?logo=amazonaws&logoColor=white)
 ![Amazon Q](https://img.shields.io/badge/Amazon%20Q-Agentic%20AI-232F3E?logo=amazonaws&logoColor=white)
@@ -37,26 +36,75 @@ When a Kubernetes alert fires, most teams get paged and manually dig through log
 
 ## System Architecture
 
-![AIOps Architecture](./docs/images/ChatGPT%20Image%20May%2010%2C%202026%2C%2003_35_33%20PM.png)
+![AIOps Architecture](./docs/images/Aiops-architecture.png)
 
-### How the Three Layers Connect
-
-**Layer 1 — Amazon EKS Cluster**
-- 5 retail store microservices running as containers
-- ArgoCD managing GitOps deployments
-- Full observability stack: Prometheus (metrics), Loki (logs), Grafana (dashboards), AlertManager (alerts)
-
-**Layer 2 — EC2 AI Engine**
-- **FastAPI**: Receives AlertManager webhooks, maintains incident conversation history, manages the remediation workflow
-- **Amazon Q CLI**: The agentic reasoning layer — investigates, reasons, decides, and acts
-- **MCP Tool Layer**:
-  - **EKS MCP** (`awslabs.eks-mcp-server`) — kubectl access, cluster state, pod logs, events, scaling
-  - **Discord MCP** (`barryy625/mcp-discord`) — posts RCA to Discord, polls for human replies
-
-**Layer 3 — Discord Incident Channel**
-- Amazon Q posts: Incident Summary → Root Cause Analysis → 3 remediation options
-- Human replies: `"1"`, `"2"`, or `"3"` to approve
-- Amazon Q executes the approved action and posts final confirmation
+```
+┌─────────────────────────────────────────────────────────────┐
+│                        EKS CLUSTER                          │
+├─────────────────────────────────────────────────────────────┤
+│ Applications                                                │
+│  ├── ui          (Java / Spring Boot)                       │
+│  ├── catalog     (Go / Gin + MySQL)                         │
+│  ├── cart        (Java / Spring Boot + DynamoDB)            │
+│  ├── orders      (Java / Spring Boot + PostgreSQL)          │
+│  └── checkout    (Node.js)                                  │
+│                                                             │
+│ GitOps                                                      │
+│  └── ArgoCD                                                 │
+│                                                             │
+│ Observability Stack                                         │
+│  ├── Prometheus                                             │
+│  ├── Loki                                                   │
+│  ├── Grafana                                                │
+│  └── AlertManager                                           │
+└──────────────────────────┬──────────────────────────────────┘
+                           │ Alert webhook
+                           ▼
+┌─────────────────────────────────────────────────────────────┐
+│                     EC2 AI ENGINE                           │
+├─────────────────────────────────────────────────────────────┤
+│ FastAPI :5000                                               │
+│  ├── receives AlertManager webhook                          │
+│  ├── maintains incident + investigation history             │
+│  ├── serves live dashboard UI                               │
+│  └── manages remediation workflow                           │
+│                                                             │
+│ Amazon Q CLI  (Agentic AI Reasoning Layer)                  │
+│                                                             │
+│ MCP TOOL LAYER                                              │
+│  ├── EKS MCP       → kubectl / cluster state               │
+│  └── Discord MCP   → Discord messaging + replies           │
+└──────────────────────────┬──────────────────────────────────┘
+                           │
+                           ▼
+┌─────────────────────────────────────────────────────────────┐
+│                  DISCORD INCIDENT CHANNEL                   │
+├─────────────────────────────────────────────────────────────┤
+│ Amazon Q posts:                                             │
+│  ├── Incident summary                                       │
+│  ├── Root Cause Analysis                                    │
+│  ├── Option 1: Quick Fix  (~2 min)                          │
+│  ├── Option 2: Standard Fix  (~10 min)                      │
+│  └── Option 3: Deep Fix  (~30 min)                          │
+│                                                             │
+│ Human replies:                                              │
+│  ├── "1", "2", or "3" to approve                           │
+│  └── "no" to take no action                                 │
+└──────────────────────────┬──────────────────────────────────┘
+                           │ Discord MCP reads reply
+                           ▼
+┌─────────────────────────────────────────────────────────────┐
+│                 REMEDIATION EXECUTION                       │
+├─────────────────────────────────────────────────────────────┤
+│ Amazon Q executes approved action via EKS MCP               │
+│  ├── kubectl rollout undo / restart                         │
+│  ├── scale replicas                                         │
+│  └── verify pod health                                      │
+│                                                             │
+│ Amazon Q posts final confirmation to Discord                │
+│  "✅ Rollback completed. All pods healthy."                  │
+└─────────────────────────────────────────────────────────────┘
+```
 
 ---
 
@@ -66,8 +114,6 @@ The retail store is a 5-service microservices application — deliberately decou
 
 ![Application Architecture](./docs/images/application-architecture.png)
 
-![Containers](./docs/images/containers.png)
-
 | Service | Language | Database | Description |
 |---------|----------|----------|-------------|
 | **UI** | Java 21 / Spring Boot 3.5 | — | Store frontend |
@@ -76,43 +122,9 @@ The retail store is a 5-service microservices application — deliberately decou
 | **Orders** | Java 21 / Spring Boot 3.5 | PostgreSQL + RabbitMQ | Order processing API |
 | **Checkout** | Node.js 20 | — | Checkout orchestration API |
 
-All services expose Prometheus metrics, health check endpoints, chaos engineering endpoints, and OpenTelemetry instrumentation.
+All services expose Prometheus metrics, health check endpoints, and OpenTelemetry instrumentation.
 
-### Application UI
-
-| Default Theme | Orange Theme |
-|:---:|:---:|
-| ![Default Theme](./docs/images/theme-default.png) | ![Orange Theme](./docs/images/theme-orange.png) |
-
-![Screenshot](./docs/images/screenshot.png)
-
----
-
-## Infrastructure
-
-Everything is provisioned with a single `terraform apply`.
-
-```
-terraform/
-├── main.tf        # VPC + EKS cluster (Auto Mode)
-├── addons.tf      # NGINX Ingress, Cert Manager, Prometheus, Loki
-├── argocd.tf      # ArgoCD Helm installation
-├── loki.tf        # Loki logging stack
-├── security.tf    # Security groups
-├── variables.tf   # Input variables
-└── outputs.tf     # Cluster endpoint, load balancer URL
-```
-
-**What gets provisioned:**
-- VPC with public/private subnets across 3 AZs + NAT Gateway
-- EKS Cluster (Kubernetes 1.33) with **Auto Mode** — no node group management
-- NGINX Ingress Controller with Network Load Balancer
-- Cert Manager for SSL
-- ArgoCD for GitOps
-- Kube Prometheus Stack (Prometheus + Grafana + AlertManager)
-- Loki + Promtail for log aggregation
-
-![EKS Deployment](docs/images/EKS.gif)
+![App Screenshot](./docs/images/app.png)
 
 ---
 
@@ -120,7 +132,7 @@ terraform/
 
 ArgoCD continuously reconciles the cluster against this Git repository. Any drift is automatically corrected.
 
-![ArgoCD UI](./docs/images/argocd-ui.png)
+![ArgoCD](./docs/images/argocd.png)
 
 ```
 Git Push → ArgoCD detects change → Helm renders manifests → Applied to EKS
@@ -128,14 +140,17 @@ Git Push → ArgoCD detects change → Helm renders manifests → Applied to EKS
                                prune: true + selfHeal: true
 ```
 
-**Dual-branch strategy:**
+ArgoCD is configured to watch `src/app/chart` and deploy to the `retail-store` namespace. Auto-sync with self-healing ensures the cluster always matches the desired state in Git.
 
-| Branch | Images | CI/CD | Use Case |
-|--------|--------|-------|----------|
-| `main` | Public ECR (v1.2.2) | Manual | Demos, quick testing |
-| `production` | Private ECR (commit hash) | GitHub Actions | Full GitOps workflow |
+```
+argocd/
+├── applications/
+│   └── retail-store-app.yaml    # ArgoCD Application manifest
+└── projects/
+    └── retail-store-project.yaml
+```
 
-On the `production` branch, any push to `src/` triggers GitHub Actions → builds Docker image → pushes to ECR → ArgoCD auto-syncs to EKS.
+> **Note:** Before running manual remediation tests, disable ArgoCD auto-sync to prevent it from reverting your changes. Re-enable it after testing.
 
 ---
 
@@ -143,9 +158,9 @@ On the `production` branch, any push to `src/` triggers GitHub Actions → build
 
 ```
 monitoring/
-├── prometheus-rules.yaml    # 8 alert rules
-├── alertmanager-config.yaml # Routes retail-store alerts to AIOps webhook
-├── podmonitor.yaml          # Prometheus scrape config for all services
+├── prometheus-rules.yaml    # 8 alert rules for the retail-store namespace
+├── alertmanager-config.yaml # Routes retail-store alerts to the AIOps webhook
+├── podmonitor.yaml          # Prometheus scrape config for all 5 services
 └── kustomization.yaml
 ```
 
@@ -162,15 +177,73 @@ monitoring/
 | `HighLatency` | Warning | p95 latency >1s for 5 min |
 | `DeploymentReplicasMismatch` | Warning | Desired ≠ Available for 5 min |
 
-AlertManager routes only `retail-store` namespace alerts to the AIOps webhook receiver on EC2. Critical alerts fire immediately; warnings are grouped.
+AlertManager routes **only** `retail-store` namespace alerts to the AIOps webhook on EC2. Critical alerts fire immediately; warnings are grouped with a 30s delay.
+
+### Grafana Dashboards
+
+![Grafana Dashboard 1](./docs/images/grafana-1.png)
+
+![Grafana Dashboard 2](./docs/images/grafana-2.png)
+
+### Prometheus Alerts
+
+![Prometheus Alert](./docs/images/prom-alert.png)
 
 ---
 
-## AIOps Incident Response — Deep Dive
+## EC2 AI Engine — Deep Dive
+
+The AI engine lives on an EC2 instance and consists of three components.
+
+### 1. FastAPI Webhook Receiver (`webhook_receiver.py`)
+
+Listens on port `5000` for AlertManager webhooks.
+
+- Filters to `retail-store` namespace only — ignores all other namespaces
+- Stores alert and investigation history in memory
+- Spawns a background investigation task per firing alert
+- Serves a live dashboard UI at `http://<EC2_IP>:5000`
+
+![AI Server Dashboard](./docs/images/ai-server-gui.png)
+
+**Key endpoints:**
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/` | GET | Live dashboard UI |
+| `/alert` | POST | AlertManager webhook receiver |
+| `/api/alerts` | GET | Last 200 alerts (JSON) |
+| `/api/investigations` | GET | Last 100 investigations (JSON) |
+| `/health` | GET | Health check |
+
+### 2. Investigation Orchestrator (`investigation_orchestrator.py`)
+
+Bridges FastAPI and Amazon Q CLI.
+
+1. Posts an immediate "investigating" notice to Discord via webhook (before Q even starts)
+2. Builds a full prompt = `AMAZON_Q_PROMPT.txt` + live alert context (alert name, severity, namespace, target, cluster, region, channel ID)
+3. Hands off entirely to Amazon Q CLI with `--no-interactive --trust-all-tools`
+4. Q handles everything from here: investigation → RCA → Discord post → poll for reply → remediation → confirmation
+5. Updates the investigation record with the outcome
+
+Q CLI runs with a 10-minute timeout — enough for investigation (variable) + 5-minute human wait + remediation.
+
+### 3. Discord Bot (`discord_bot.py`)
+
+A separate always-on Discord bot that lets engineers query the cluster directly from Discord at any time — outside of incident response.
+
+- Listens in a dedicated command channel
+- Passes any message to Amazon Q CLI with cluster context pre-loaded
+- Returns Q's response back to Discord (with ANSI stripping and 2000-char truncation)
+- Useful for ad-hoc queries: "how many pods are running?", "what's the CPU usage of catalog?"
+
+---
+
+## AIOps Incident Response — Full Workflow
 
 ### The Agentic Investigation Loop
 
-When Amazon Q receives an alert, it doesn't follow a fixed script. It reasons about the alert type and runs targeted checks:
+Amazon Q doesn't follow a fixed script. It reasons about the alert type and runs targeted checks using the `AMAZON_Q_PROMPT.txt` master prompt.
 
 **Always checked:**
 - Current pod status in `retail-store` namespace
@@ -187,14 +260,15 @@ When Amazon Q receives an alert, it doesn't follow a fixed script. It reasons ab
 
 ### What Discord Sees
 
-**Immediate notification:**
-```
-🔴 ALERT: PodCrashLooping
-Investigating... analyzing cluster with MCP tools.
-Namespace: retail-store | Target: catalog-7d9f8b-xxx | Severity: critical
-```
+**Immediate notification (posted by Python before Q starts):**
 
-**RCA posted after investigation:**
+![Discord Notification](./docs/images/discord-1.png)
+
+**RCA + remediation options (posted by Amazon Q after investigation):**
+
+![Discord RCA](./docs/images/discord-2.png)
+
+**Example RCA message:**
 ```
 🔍 RCA Complete: PodCrashLooping
 
@@ -243,50 +317,86 @@ Verification: 2/2 replicas available, no restarts in last 2 min
 
 ---
 
+## Repository Structure
+
+```
+retail-store-sample-app/
+├── src/
+│   ├── app/chart/          # Umbrella Helm chart (deploys all 5 services)
+│   ├── ui/                 # Java Spring Boot frontend
+│   ├── catalog/            # Go/Gin catalog service
+│   ├── cart/               # Java Spring Boot cart service
+│   ├── orders/             # Java Spring Boot orders service
+│   └── checkout/           # Node.js checkout service
+│
+├── argocd/
+│   ├── applications/
+│   │   └── retail-store-app.yaml   # ArgoCD Application manifest
+│   └── projects/
+│       └── retail-store-project.yaml
+│
+├── monitoring/
+│   ├── prometheus-rules.yaml       # 8 alert rules
+│   ├── alertmanager-config.yaml    # Webhook routing to EC2
+│   ├── podmonitor.yaml             # Prometheus scrape config
+│   └── kustomization.yaml
+│
+├── EC2-files/aiops/
+│   ├── webhook_receiver.py         # FastAPI server + dashboard
+│   ├── investigation_orchestrator.py  # Q CLI bridge
+│   ├── discord_bot.py              # Always-on Discord bot
+│   ├── AMAZON_Q_PROMPT.txt         # Master prompt for Amazon Q
+│   ├── requirements.txt            # Python dependencies
+│   └── .env                        # Discord + AWS credentials
+│
+└── docs/images/                    # Architecture diagrams + screenshots
+```
+
+---
+
 ## Getting Started
 
 ### Prerequisites
 
-| Tool | Version |
-|------|---------|
-| AWS CLI | v2+ |
-| Terraform | 1.0+ |
-| kubectl | 1.33+ |
-| Helm | 3.0+ |
+| Tool | Version | Purpose |
+|------|---------|---------|
+| AWS CLI | v2+ | Cluster access |
+| kubectl | 1.33+ | Kubernetes CLI |
+| Helm | 3.0+ | Chart deployments |
+| Python | 3.10+ | EC2 AI engine |
+| Amazon Q CLI | latest | Agentic AI layer |
 
 ### 1. Configure AWS
 
 ```bash
 aws configure
+# Enter: Access Key, Secret Key, Region (ap-south-1), output format (json)
 ```
 
-### 2. Clone and deploy infrastructure
+### 2. Configure kubectl for your EKS cluster
 
 ```bash
-git clone <your-repo-url>
-cd retail-store-sample-app/terraform
-terraform init
-terraform apply --auto-approve
-```
-
-### 3. Configure kubectl
-
-```bash
-aws eks update-kubeconfig --name retail-store --region ap-south-1
+aws eks update-kubeconfig --name <your-cluster-name> --region ap-south-1
 kubectl get nodes
 ```
 
-### 4. Access the application
+### 3. Deploy the application via ArgoCD
+
+Update `argocd/applications/retail-store-app.yaml` with your repo URL, then apply:
 
 ```bash
-# Get load balancer external IP
-kubectl get svc -n ingress-nginx
+kubectl apply -f argocd/applications/retail-store-app.yaml
+kubectl apply -f argocd/projects/retail-store-project.yaml
+```
 
-# Verify all services are running
+ArgoCD will automatically sync and deploy all 5 services to the `retail-store` namespace.
+
+```bash
+# Verify all pods are running
 kubectl get pods -n retail-store
 ```
 
-### 5. Access ArgoCD
+### 4. Access ArgoCD
 
 ```bash
 # Get admin password
@@ -298,41 +408,102 @@ kubectl port-forward svc/argocd-server -n argocd 8080:443
 # Open https://localhost:8080 — username: admin
 ```
 
-### 6. Deploy monitoring configuration
+### 5. Deploy monitoring configuration
+
+Update `monitoring/alertmanager-config.yaml` — replace the webhook URL with your EC2 instance's private IP:
+
+```yaml
+receivers:
+  - name: 'aiops-receiver'
+    webhook_configs:
+      - url: 'http://<YOUR_EC2_PRIVATE_IP>:5000/alert'
+```
+
+Then apply:
 
 ```bash
-# Update alertmanager-config.yaml with your EC2 webhook IP first, then:
 kubectl apply -f monitoring/prometheus-rules.yaml
 kubectl apply -f monitoring/podmonitor.yaml
 kubectl apply -f monitoring/alertmanager-config.yaml
 
+# Restart AlertManager to pick up the new config
 kubectl rollout restart statefulset \
   alertmanager-kube-prometheus-stack-alertmanager -n monitoring
 ```
 
-### 7. Access observability UIs
+### 6. Access observability UIs
 
 ```bash
 # Grafana (admin / prom-operator)
 kubectl port-forward -n monitoring svc/kube-prometheus-stack-grafana 3000:80
+# http://localhost:3000
 
 # Prometheus
 kubectl port-forward -n monitoring svc/kube-prometheus-stack-prometheus 9090:9090
+# http://localhost:9090
 
 # AlertManager
 kubectl port-forward -n monitoring svc/kube-prometheus-stack-alertmanager 9093:9093
+# http://localhost:9093
+```
+
+### 7. Set up the EC2 AI Engine
+
+SSH into your EC2 instance and run:
+
+```bash
+# Install dependencies
+cd ~/aiops
+pip install -r requirements.txt
+
+# Configure environment variables
+# Edit .env with your Discord webhook URL, bot token, channel ID, and AWS region
+nano .env
+```
+
+**Required `.env` values:**
+
+| Variable | Description |
+|----------|-------------|
+| `DISCORD_WEBHOOK_URL` | Discord channel webhook URL for posting embeds |
+| `DISCORD_CHANNEL_ID` | Channel ID where Q polls for human replies |
+| `DISCORD_BOT_TOKEN` | Bot token for the Discord bot (polling + discord_bot.py) |
+| `AWS_REGION` | AWS region of your EKS cluster |
+
+```bash
+# Start the FastAPI webhook receiver (runs on port 5000)
+uvicorn webhook_receiver:app --host 0.0.0.0 --port 5000
+
+# In a separate terminal, start the Discord bot
+python discord_bot.py
+```
+
+Open `http://<EC2_IP>:5000` to see the live incident dashboard.
+
+### 8. Verify the end-to-end flow
+
+```bash
+# Trigger a test alert — scale down a service (disable ArgoCD auto-sync first)
+kubectl patch application retail-store-app -n argocd --type merge \
+  -p '{"spec":{"syncPolicy":null}}'
+
+kubectl scale deployment ui -n retail-store --replicas=0
+
+# Watch Discord — you should see:
+# 1. Immediate "investigating" notice
+# 2. RCA with 3 remediation options (within ~60s)
+# Reply with "1", "2", or "3" to approve
+
+# Re-enable ArgoCD after testing
+kubectl patch application retail-store-app -n argocd --type merge \
+  -p '{"spec":{"syncPolicy":{"automated":{"prune":true,"selfHeal":true}}}}'
 ```
 
 ---
 
-## Cleanup
+## Monitoring Setup Guide
 
-```bash
-cd terraform
-terraform destroy --auto-approve
-```
-
-> ECR repositories must be deleted manually from the AWS Console.
+For a detailed walkthrough of the monitoring stack — including how to verify Prometheus targets, test each alert type, and troubleshoot webhook delivery — see the [Monitoring README](./monitoring/README.md).
 
 ---
 
@@ -341,17 +512,15 @@ terraform destroy --auto-approve
 | Category | Technologies |
 |----------|-------------|
 | **Cloud** | AWS (EKS, EC2, VPC, DynamoDB, ECR, IAM) |
-| **IaC** | Terraform, AWS EKS Blueprints Addons |
 | **Orchestration** | Kubernetes 1.33, EKS Auto Mode |
 | **GitOps** | ArgoCD, Helm |
-| **CI/CD** | GitHub Actions |
 | **Ingress** | NGINX Ingress Controller, NLB |
 | **Monitoring** | Prometheus, Grafana, AlertManager |
 | **Logging** | Loki, Promtail |
-| **Tracing** | OpenTelemetry 2.17 |
-| **AIOps Engine** | Amazon Q CLI (agentic), FastAPI, MCP |
-| **MCP Tools** | EKS MCP, Discord MCP |
-| **Languages** | Java 21, Go 1.23, Node.js 20 |
+| **Tracing** | OpenTelemetry |
+| **AIOps Engine** | Amazon Q CLI (agentic), FastAPI, Python |
+| **MCP Tools** | EKS MCP (`awslabs.eks-mcp-server`), Discord MCP |
+| **Languages** | Java 21, Go 1.23, Node.js 20, Python 3.10+ |
 | **Frameworks** | Spring Boot 3.5, Gin, Express |
 | **Databases** | MySQL, PostgreSQL, Amazon DynamoDB, RabbitMQ |
 

@@ -1,4 +1,8 @@
 .DS_Store
+
+# Environment files
+.env
+**/.env
 *.tfvars
 .terraform
 *.tfstate*
