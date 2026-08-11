@@ -10,7 +10,7 @@
 ![AWS EKS](https://img.shields.io/badge/AWS-EKS%20Auto%20Mode-FF9900?logo=amazonaws&logoColor=white)
 ![Amazon Q](https://img.shields.io/badge/Amazon%20Q-Agentic%20AI-232F3E?logo=amazonaws&logoColor=white)
 
-**A production-grade AIOps platform where Amazon Q autonomously investigates Kubernetes incidents, performs root cause analysis, and executes human-approved remediations — all in real time.**
+**A production-grade Agentic AI platform where Amazon Q autonomously investigates Kubernetes incidents, performs root cause analysis, and executes human-approved remediations — all in real time.**
 
 </div>
 
